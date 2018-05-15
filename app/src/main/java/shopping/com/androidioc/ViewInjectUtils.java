@@ -1,8 +1,12 @@
 package shopping.com.androidioc;
 
 import android.app.Activity;
+import android.view.View;
+
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 
 /**
@@ -17,12 +21,16 @@ import java.lang.reflect.Method;
 public class ViewInjectUtils {
     private static final String SETCONTENTVIEW = "setContentView";
     private static final String FINDVIEWBYID = "findViewById";
+    private static final String EVENTMETHOD = "setOnClickListener";
+    private static final Class EVENTTYPE = View.OnClickListener.class;
+    private static final String METHODNAME = "onClick";
+
     public static void inject(Activity activity)
     {
 
         bindContentView(activity);
         bindViews(activity);
-
+        bindEvents(activity);
     }
     /**
      * 绑定主布局文件
@@ -86,4 +94,65 @@ public class ViewInjectUtils {
         }
 
     }
+
+    /**
+     * 绑定所有的事件
+     *
+     * @param activity
+     */
+    private static void bindEvents(Activity activity)
+    {
+
+        Class<? extends Activity> clazz = activity.getClass();
+        Method[] methods = clazz.getMethods();
+        //遍历所有的方法
+        for (Method method : methods)
+        {
+            //拿到方法上的所有的注解
+            Annotation[] annotations = method.getAnnotations();
+            for (Annotation annotation : annotations)
+            {
+                //获取注解类型   OnClick
+                Class<? extends Annotation> annotationType = annotation
+                        .annotationType();
+                //判断是否为OnClick注解
+                if(annotationType.getName().equals(OnClick.class.getName()))
+                {
+                    try
+                    {
+                        //拿到Onclick注解中的value方法
+                        Method method1 = annotationType
+                                .getDeclaredMethod("value");
+                        //取出所有的viewId
+                        int[] viewIds = (int[]) method1.invoke(annotation);
+                        //设置动态代理
+                        DynamicHandler handler = new DynamicHandler(activity);
+                        handler.addMethod(METHODNAME, method);//添加onClick方法
+                        Object listener = Proxy.newProxyInstance(
+                                EVENTTYPE.getClassLoader(),
+                                new Class<?>[] { EVENTTYPE }, handler);
+
+//                        BindListener listener = new BindListener(activity);
+//                        listener.setmMethod(method);
+                        //遍历所有的View，设置事件
+                        for (int viewId : viewIds)
+                        {
+                            View view = activity.findViewById(viewId);
+                            Method setEventListenerMethod = view.getClass().getMethod(EVENTMETHOD, EVENTTYPE);
+                            setEventListenerMethod.invoke(view, listener);
+                        }
+
+                    } catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+        }
+
+    }
+
+
+
 }
