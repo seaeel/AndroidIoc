@@ -15,11 +15,11 @@ import java.util.HashMap;
 
 
 public class DynamicHandler implements InvocationHandler {
-    private WeakReference<Object> handlerRef;
+    private Object handler;
     private final HashMap<String, Method> methodMap = new HashMap<String, Method>();
     public DynamicHandler(Object handler)
     {
-        this.handlerRef = new WeakReference<Object>(handler);
+        this.handler = handler;
     }
 
     public void addMethod(String name, Method method)
@@ -27,21 +27,10 @@ public class DynamicHandler implements InvocationHandler {
         methodMap.put(name, method);
     }
 
-    public Object getHandler()
-    {
-        return handlerRef.get();
-    }
-
-    public void setHandler(Object handler)
-    {
-        this.handlerRef = new WeakReference<Object>(handler);
-    }
-
     @Override
     public Object invoke(Object proxy, Method method, Object[] args)
             throws Throwable
     {
-        Object handler = handlerRef.get();
         if (handler != null)
         {
             String methodName = method.getName();
